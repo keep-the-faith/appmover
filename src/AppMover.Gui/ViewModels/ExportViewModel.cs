@@ -212,36 +212,60 @@ public sealed partial class ExportViewModel : PageViewModel, IDisposable
     [ObservableProperty]
     private string _traceSummary = "";
 
-    /// <summary>Records what the application reads and writes while the user works with it, then analyzes again.</summary>
-    [RelayCommand]
-    private Task RecordUsageAsync()
+    // A recording runs while the window stays usable (the user switches to the application): Stop analyzes it again.
+    private Core.Tracing.IUsageTraceSession? _tracing;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RecordUsageCommand), nameof(StopRecordingCommand), nameof(ExportCommand), nameof(BackCommand))]
+    private bool _isRecording;
+
+    [ObservableProperty]
+    private string _recordingMessage = "";
+
+    private bool IsNotRecording() => !IsRecording;
+
+    /// <summary>Starts recording what the application reads and writes while the user works with it.</summary>
+    [RelayCommand(CanExecute = nameof(IsNotRecording))]
+    private void RecordUsage()
     {
         if (_app is null || _collection is null || _session is null)
-            return Task.CompletedTask;
+            return;
         if (_collection.InstallRoots.Count == 0)
         {
             Dialogs.Error("Record usage", "No install directory was found: the processes of the application cannot be recognized.");
-            return Task.CompletedTask;
+            return;
         }
 
-        var (app, collection, session) = (_app, _collection, _session);
-        var launch = AppMoverHost.MainExecutable(app, collection) is not null
-                     && Dialogs.Confirm("Record usage", $"Start {app.DisplayName} now?{Environment.NewLine}(No: start it yourself after this message.)");
-        Core.Tracing.IUsageTraceSession tracing;
+        var launch = AppMoverHost.MainExecutable(_app, _collection) is not null
+                     && Dialogs.Confirm("Record usage", $"Start {_app.DisplayName} now?{Environment.NewLine}(No: start it yourself after this message.)");
         try
         {
-            tracing = Host.StartUsageTrace(app, collection, launch);
+            _tracing = Host.StartUsageTrace(_app, _collection, launch);
         }
         catch (Exception e)
         {
             Dialogs.Error("Record usage", $"The recording could not start: {e.Message}");
+            return;
+        }
+        RecordingMessage = $"Recording what {_app.DisplayName} reads and writes. Use the application now (open documents, " +
+                           "change settings), close it, then click Stop recording.";
+        IsRecording = true;
+    }
+
+    /// <summary>Stops the recording and analyzes the application again with what it used.</summary>
+    [RelayCommand(CanExecute = nameof(IsRecording))]
+    private Task StopRecordingAsync()
+    {
+        var tracing = _tracing;
+        _tracing = null;
+        IsRecording = false;
+        if (tracing is null || _app is null || _session is null)
+        {
+            tracing?.Dispose();
             return Task.CompletedTask;
         }
 
-        Dialogs.Info("Recording usage",
-            $"AppMover is recording what {app.DisplayName} reads and writes.{Environment.NewLine}{Environment.NewLine}" +
-            "Use the application now: open documents, change settings, then close it. Click OK to stop the recording.");
-
+        var (app, session) = (_app, _session);
         var previous = Items.ToDictionary(i => i.Item.Id, i => i.IsSelected, StringComparer.OrdinalIgnoreCase);
         return RunAsync("Analyzing the recorded usage…", () =>
         {
@@ -277,7 +301,7 @@ public sealed partial class ExportViewModel : PageViewModel, IDisposable
             item.IsSelected = selected(item);
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(IsNotRecording))]
     private void Back()
     {
         CloseSession();
@@ -293,7 +317,7 @@ public sealed partial class ExportViewModel : PageViewModel, IDisposable
 
     public string PasswordConfirmation { get; set; } = "";
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(IsNotRecording))]
     private Task ExportAsync()
     {
         if (_app is null || _collection is null || _session is null)
@@ -368,5 +392,11 @@ public sealed partial class ExportViewModel : PageViewModel, IDisposable
         _collection = null;
     }
 
-    public void Dispose() => CloseSession();
+    public void Dispose()
+    {
+        // Closing the window while recording: stop the kernel trace session, it would outlive AppMover otherwise.
+        _tracing?.Dispose();
+        _tracing = null;
+        CloseSession();
+    }
 }

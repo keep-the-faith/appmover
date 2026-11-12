@@ -176,6 +176,21 @@ public sealed class CollectionContext(
     /// <summary>True when the path contains an install root (e.g. %LOCALAPPDATA%\Programs).</summary>
     public bool ContainsInstallRoot(string path) => _installRoots.Any(r => WinPath.IsUnderOrEqual(r.Path, path));
 
+    /// <summary>
+    /// True for a folder too broad to belong to an application: a drive root, or a folder that is (or contains) a known
+    /// folder (Program Files, Common Files, Windows, a user profile…).
+    /// </summary>
+    public bool IsTooBroad(string path)
+    {
+        if (WinPath.IsRoot(path))
+            return true;
+        var machine = session.Machine;
+        return machine.All().Select(f => f.Path)
+            .Concat(session.Users.SelectMany(u => u.Folders.All().Select(f => f.Path)))
+            .Concat([WinPath.Combine(machine.ProgramFiles, "Common Files"), WinPath.Combine(machine.ProgramFilesX86, "Common Files")])
+            .Any(k => WinPath.IsUnderOrEqual(k, path));
+    }
+
     /// <summary>Factory for items, filling the owner of per-user items.</summary>
     public static CollectedItem Item(
         string collector, ItemKind kind, ItemRole role, Confidence confidence, string reason,

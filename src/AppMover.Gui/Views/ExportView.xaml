@@ -63,6 +63,18 @@
                 </StackPanel>
             </Border>
 
+            <!-- Recording usage: not modal, the user works in the recorded application meanwhile. -->
+            <Border DockPanel.Dock="Top" Margin="0,8,0,0" Padding="10" BorderThickness="2" BorderBrush="{StaticResource WarningBrush}"
+                    Visibility="{Binding IsRecording, Converter={StaticResource BoolToVisibility}}">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" Content="Stop recording"
+                            Command="{Binding StopRecordingCommand}" VerticalAlignment="Center" Margin="12,0,0,0" />
+                    <TextBlock DockPanel.Dock="Left" Text="●" Foreground="{StaticResource WarningBrush}" FontSize="16"
+                               VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <TextBlock Text="{Binding RecordingMessage}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                </DockPanel>
+            </Border>
+
             <DockPanel DockPanel.Dock="Top" Margin="0,8">
                 <Button DockPanel.Dock="Right" Content="Select none" Command="{Binding SelectNoneCommand}" />
                 <Button DockPanel.Dock="Right" Content="Record usage…" Command="{Binding RecordUsageCommand}"

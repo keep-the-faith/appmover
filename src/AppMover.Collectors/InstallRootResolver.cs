@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using AppMover.Core.Models;
 using AppMover.Core.Msi;
+using AppMover.Core.Platform;
 using AppMover.Core.Text;
 
 namespace AppMover.Collectors;
@@ -53,7 +54,9 @@ public static partial class InstallRootResolver
             roots[parent] = (r.Path, (Confidence)Math.Max((int)r.Confidence, (int)candidate.Confidence), r.Reason, r.Primary || index == 0);
         }
 
-        return roots.Select(r => new InstallRoot(r.Path, r.Confidence, r.Reason, r.Primary)).ToList();
+        // Registry values often have another case than the disk ("c:\gestcime" for C:\GESTCIME): the package and the
+        // deployment use the folder name as it is on the disk.
+        return roots.Select(r => new InstallRoot(context.Files.GetActualDirectoryCase(r.Path), r.Confidence, r.Reason, r.Primary)).ToList();
     }
 
     /// <summary>
@@ -78,7 +81,8 @@ public static partial class InstallRootResolver
             })
             .OfType<string>()
             .Select(WinPath.Normalize)
-            .Where(f => !WinPath.IsUnderOrEqual(f, machine.Windows))
+            // Only absolute drive paths ("C:\…"): they are grouped by their drive below.
+            .Where(f => f.Length >= 3 && f[1] == ':' && !WinPath.IsUnderOrEqual(f, machine.Windows))
             .Distinct(WinPath.Comparer);
 
         // Group by the deepest known folder containing them (or the drive).
@@ -113,19 +117,8 @@ public static partial class InstallRootResolver
     }
 
     /// <summary>Rejects missing folders and folders that are too broad (drive root, Program Files, a user profile…).</summary>
-    private static bool IsAcceptable(string path, CollectionContext context)
-    {
-        if (WinPath.IsRoot(path) || !context.Files.DirectoryExists(path))
-            return false;
-        var machine = context.Session.Machine;
-        if (WinPath.IsUnderOrEqual(path, machine.Windows))
-            return false;
-        var known = machine.All().Select(f => f.Path)
-            .Concat(context.Session.Users.SelectMany(u => u.Folders.All().Select(f => f.Path)))
-            .Concat([WinPath.Combine(machine.ProgramFiles, "Common Files"), WinPath.Combine(machine.ProgramFilesX86, "Common Files")]);
-        // A folder that is (or contains) a known folder is too broad.
-        return !known.Any(k => WinPath.IsUnderOrEqual(k, path));
-    }
+    private static bool IsAcceptable(string path, CollectionContext context) =>
+        !context.IsTooBroad(path) && context.Files.DirectoryExists(path) && !WinPath.IsUnderOrEqual(path, context.Session.Machine.Windows);
 
     /// <summary>Installer caches hold a copy of the setup, not the application.</summary>
     private static bool IsInstallerCache(string path) =>

@@ -3,6 +3,7 @@ using AppMover.Core.Inno;
 using AppMover.Core.Models;
 using AppMover.Core.Msi;
 using AppMover.Core.Registry;
+using AppMover.Core.Text;
 using AppMover.Tests.Fakes;
 using Microsoft.Extensions.Logging.Abstractions;
 using static AppMover.Core.Inno.InnoUninstallLog;
@@ -20,6 +21,13 @@ public class MsiKeyPathTests
     }
 
     [Fact]
+    public void FileWithQuestionMark() =>
+        Assert.Equal(new MsiKeyPath(MsiKeyPathKind.File, @"C:\Windows\system32\msvcr120.dll"), MsiKeyPath.Parse(@"C:\?Windows\system32\msvcr120.dll"));
+
+    [Fact]
+    public void NetworkFile() => Assert.Equal(new MsiKeyPath(MsiKeyPathKind.File, @"\\server\share\app.exe"), MsiKeyPath.Parse(@"\\server\share\app.exe"));
+
+    [Fact]
     public void Directory() => Assert.Equal(new MsiKeyPath(MsiKeyPathKind.Directory, @"C:\App\Data"), MsiKeyPath.Parse(@"C:\App\Data\"));
 
     [Theory]
@@ -27,6 +35,10 @@ public class MsiKeyPathTests
     [InlineData(@"22:\SOFTWARE\Acme\Editor\Version", 2, true, @"SOFTWARE\Acme\Editor", "Version")]
     [InlineData(@"01:\Software\Acme\", 1, false, @"Software\Acme", "")]
     [InlineData(@"00:\.acme\", 0, false, ".acme", "")]
+    // Value name with a backslash (SQL Server LocalDB): "*59*" = index of the value name in "22:\SYSTEM\…\NT SERVICE\SQLWriter".
+    [InlineData(@"22*59*\SYSTEM\CurrentControlSet\services\VSS\VssAccessControl\NT SERVICE\SQLWriter", 2, true,
+        @"SYSTEM\CurrentControlSet\services\VSS\VssAccessControl", @"NT SERVICE\SQLWriter")]
+    [InlineData(@"02*18*\SOFTWARE\Acme\C:\App\a.dll", 2, false, @"SOFTWARE\Acme", @"C:\App\a.dll")]
     public void Registry(string raw, int root, bool is64, string key, string value) =>
         Assert.Equal(new MsiKeyPath(MsiKeyPathKind.Registry, key, root, is64, value), MsiKeyPath.Parse(raw));
 
@@ -34,6 +46,10 @@ public class MsiKeyPathTests
     [InlineData("")]
     [InlineData(null)]
     [InlineData(@"C?\Program Files\App\app.exe")]
+    [InlineData(@"<\Microsoft.SqlServer.Types,version=""13.0.0.0"",culture=""neutral"",publicKeyToken=""89845DCD8080CC91"",processorArchitecture=""MSIL""")]
+    [InlineData(@"22*58*\SYSTEM\CurrentControlSet\services\VSS\VssAccessControl\NT SERVICE\SQLWriter")] // offset not on a separator
+    [InlineData(@"02*999*\SOFTWARE\Acme\Value")]
+    [InlineData(@"App\app.exe")]
     public void None(string? raw) => Assert.Equal(MsiKeyPathKind.None, MsiKeyPath.Parse(raw).Kind);
 }
 
@@ -66,11 +82,21 @@ public class MsiCollectorTests
         Component("{00000000-0000-0000-0000-000000000004}", @"C:\Program Files\Common Files\Acme\shared.dll", shared: true);
         Component("{00000000-0000-0000-0000-000000000005}", @"22:\SOFTWARE\Acme\Editor\Version");
         Component("{00000000-0000-0000-0000-000000000006}", @"02:\SOFTWARE\Acme\Editor32\Installed");
+        // Assembly installed in the GAC (e.g. Microsoft.SqlServer.Types by SQL Server LocalDB): not a path.
+        Component("{00000000-0000-0000-0000-000000000007}", @"<\Acme.Types,version=""1.0.0.0"",culture=""neutral"",publicKeyToken=""0123456789ABCDEF""");
+        // Components without a key file: their folder is the key path, sometimes far too broad (TARGETDIR = drive root).
+        Component("{00000000-0000-0000-0000-000000000101}", @"C:\");
+        Component("{00000000-0000-0000-0000-000000000102}", @"C:\Program Files\");
+        // Key file stored with a '?' after the root (SQL Server LocalDB: C:\?Windows\system32\msvcr120.dll).
+        Component("{00000000-0000-0000-0000-000000000104}", @"C:\?Windows\System32\acmeruntime.dll");
+        // Key path that is no longer on the disk: cannot be exported.
+        Component("{00000000-0000-0000-0000-000000000105}", @"C:\Program Files\Acme\Gone\gone.dll");
 
         _machine.Files
             .Add(LocalPackage)
             .Add($@"{EditorDir}\editor.exe").Add($@"{EditorDir}\plugins\a.dll").Add($@"{EditorDir}\readme.txt")
-            .Add(@"C:\Windows\System32\acmehelper.dll").Add(@"C:\Program Files\Common Files\Acme\shared.dll");
+            .Add(@"C:\Windows\System32\acmehelper.dll").Add(@"C:\Program Files\Common Files\Acme\shared.dll")
+            .Add(@"C:\Windows\System32\acmeruntime.dll");
 
         var database = new FakeMsiDatabase()
             .Table("Component",
@@ -126,6 +152,19 @@ public class MsiCollectorTests
         Assert.Contains("shared", shared.Warning);
 
         Assert.DoesNotContain(_result.Items, i => i.Location.EndsWith(@"plugins\a.dll"));
+    }
+
+    [Fact]
+    public void BroadComponentFoldersAreIgnored()
+    {
+        Assert.DoesNotContain(_result.Items, i => i.Kind == ItemKind.Directory && WinPath.IsUnderOrEqual(@"C:\Program Files", i.Location));
+    }
+
+    [Fact]
+    public void KeyPathsMustExist()
+    {
+        Assert.Equal(Confidence.Possible, Find(@"C:\Windows\System32\acmeruntime.dll").Confidence);
+        Assert.DoesNotContain(_result.Items, i => i.Location.Contains('?') || i.Location.Contains(@"\Gone\"));
     }
 
     [Fact]

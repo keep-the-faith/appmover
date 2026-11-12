@@ -12,6 +12,7 @@
     <ProjectReference Include="..\..\src\AppMover.Inventory\AppMover.Inventory.csproj" />
     <ProjectReference Include="..\..\src\AppMover.Detection\AppMover.Detection.csproj" />
     <ProjectReference Include="..\..\src\AppMover.Deployment\AppMover.Deployment.csproj" />
+    <ProjectReference Include="..\..\src\AppMover.Host\AppMover.Host.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />

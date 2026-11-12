@@ -1,5 +1,6 @@
 using AppMover.Collectors;
 using AppMover.Core.Models;
+using AppMover.Core.Platform;
 using AppMover.Core.Registry;
 using AppMover.Core.Shell;
 using AppMover.Core.Text;
@@ -168,4 +169,16 @@ public class AppKeywordsTests
         Assert.False(AppKeywords.Empty.IsSpecificPublisher("microsoft"));
         Assert.True(AppKeywords.Empty.IsSpecificPublisher("videolan"));
     }
+}
+
+public class FileSystemExtensionsTests
+{
+    private readonly FakeFileSystem _files = new FakeFileSystem().Add(@"C:\Program Files\GESTCIME\Data\db.fdb");
+
+    [Theory]
+    [InlineData(@"c:\program files\gestcime\data", @"C:\Program Files\GESTCIME\Data")]
+    [InlineData(@"c:\program files\gestcime\missing\sub", @"C:\Program Files\GESTCIME\missing\sub")] // missing parts kept as given
+    [InlineData(@"c:\", @"C:\")]
+    [InlineData(@"\\server\share\app", @"\\server\share\app")]
+    public void GetActualDirectoryCase(string path, string expected) => Assert.Equal(expected, _files.GetActualDirectoryCase(path));
 }

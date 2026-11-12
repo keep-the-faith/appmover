@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-12
+
+### Fixed
+- Collecting an MSI application that installs .NET assemblies in the GAC (e.g. Microsoft SQL Server 2016 LocalDB)
+  failed with "Index and length must refer to a location within the string": assembly key paths (`<\Name,version=…`)
+  are no longer taken for file paths, and only absolute drive paths define the install folders.
+- Registry key paths whose value name contains a backslash (`NN*offset*\key\value`, e.g.
+  `22*59*\SYSTEM\CurrentControlSet\services\VSS\VssAccessControl\NT SERVICE\SQLWriter` written by SQL Server LocalDB)
+  were taken for file paths and made the export fail; they are now read as registry values. Key paths that are neither
+  a registry value nor an absolute path are ignored.
+- Windows Installer components without a key file, whose key path is their folder, could add a drive root (`C:\`,
+  e.g. SQL Server LocalDB) or a known folder such as Program Files to the export; such folders are now ignored.
+- Key files stored by Windows Installer with a `?` after the drive root (`C:\?Windows\system32\msvcr120.dll`) appeared
+  with that invalid path and could not be exported; the `?` is now removed, and component files or folders that do not
+  exist on the disk are no longer collected.
+- The install directory kept the case of the registry value it was found in (e.g. `InstallLocation` = `c:\gestcime`
+  for `C:\GESTCIME`), so the import proposed `c:\gestcime`; it now has the case of the folder on the disk.
+- "Record usage" failed in the published executables with "The specified module could not be found": TraceEvent
+  looks for `KernelTraceControl.dll` next to its assembly, which a single-file executable does not have. The DLL is now
+  embedded, extracted to `%ProgramFiles%\AppMover\tools` and checked (SHA-256) before loading, like 7-Zip.
+
+### Changed
+- "Record usage" no longer blocks the window with a message box: a banner shows the recording with a **Stop recording**
+  button (Export, Back and Record usage are disabled meanwhile). Closing AppMover stops the recording.
+
 ## [1.0.0] - 2026-11-11
 
 First version. Validated on Windows 10 (22H2): applications of every supported installer type were exported and

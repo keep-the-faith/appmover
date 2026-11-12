@@ -237,6 +237,23 @@ public class InstallRootTests
         Assert.True(root.IsPrimary);
     }
 
+    [Fact]
+    public void InstallFolderHasTheCaseOfTheDisk()
+    {
+        // Installers often write InstallLocation in another case than the folder (GESTCIME: "c:\gestcime").
+        _machine.Files.Add(@"C:\GESTCIME\Bin\gestcime.exe");
+        var app = _machine.App;
+
+        var roots = Resolve(new InstalledApp
+        {
+            Id = app.Id, KeyName = app.KeyName, RegistryPath = app.RegistryPath, Scope = app.Scope, View = app.View, RawValues = app.RawValues,
+            InstallLocation = @"c:\gestcime\",
+            DisplayIcon = @"c:\gestcime\bin\gestcime.exe,0",
+        });
+
+        Assert.Equal(@"C:\GESTCIME", Assert.Single(roots).Path);
+    }
+
     [Theory]
     [InlineData(@"C:\App\app.exe,0", @"C:\App\app.exe")]
     [InlineData("\"C:\\App\\app.exe\",-101", @"C:\App\app.exe")]

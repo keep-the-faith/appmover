@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Security.Cryptography;
 using AppMover.Core.Nsis;
 using AppMover.Core.Text;
 using Microsoft.Extensions.Logging;
@@ -21,7 +20,7 @@ public sealed class SevenZipNsisScriptReader(ILogger logger) : INsisScriptReader
         string sevenZip;
         try
         {
-            sevenZip = Environment.GetEnvironmentVariable("APPMOVER_7ZIP") is { Length: > 0 } custom ? custom : ExtractEmbedded();
+            sevenZip = Environment.GetEnvironmentVariable("APPMOVER_7ZIP") is { Length: > 0 } custom ? custom : EmbeddedTools.Extract(ResourceName, hash => $"7zz-{hash}.exe");
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidDataException)
         {
@@ -62,35 +61,5 @@ public sealed class SevenZipNsisScriptReader(ILogger logger) : INsisScriptReader
             logger.LogWarning(e, "Cannot extract the NSIS script of {Path}", executablePath);
             return null;
         }
-    }
-
-    /// <summary>
-    /// Copies the embedded 7zz.exe to %ProgramFiles%\AppMover\tools (writable by administrators only) and checks its
-    /// SHA-256 before every use, so that a modified copy is never run by this elevated process.
-    /// </summary>
-    private static string ExtractEmbedded()
-    {
-        using var resource = typeof(SevenZipNsisScriptReader).Assembly.GetManifestResourceStream(ResourceName)
-                             ?? throw new InvalidDataException("7-Zip is not embedded in this build of AppMover.");
-        var bytes = new byte[resource.Length];
-        resource.ReadExactly(bytes);
-        var hash = Convert.ToHexString(SHA256.HashData(bytes));
-
-        var directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "AppMover", "tools");
-        var path = Path.Combine(directory, $"7zz-{hash[..12].ToLowerInvariant()}.exe");
-        if (!File.Exists(path) || !HashEquals(path, hash))
-        {
-            Directory.CreateDirectory(directory);
-            File.WriteAllBytes(path, bytes);
-            if (!HashEquals(path, hash))
-                throw new InvalidDataException($"{path} does not match the embedded 7-Zip.");
-        }
-        return path;
-    }
-
-    private static bool HashEquals(string path, string expected)
-    {
-        using var stream = File.OpenRead(path);
-        return Convert.ToHexString(SHA256.HashData(stream)) == expected;
     }
 }

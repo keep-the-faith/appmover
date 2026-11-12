@@ -37,6 +37,7 @@ public sealed class EtwUsageTracer(ILogger logger) : IUsageTracer
             _roots = installRoots;
             _logger = logger;
 
+            KernelTraceControlLoader.EnsureLoaded();
             _session = new TraceEventSession(KernelTraceEventParser.KernelSessionName) { StopOnDispose = true };
             _session.EnableKernelProvider(
                 KernelTraceEventParser.Keywords.Process | KernelTraceEventParser.Keywords.FileIOInit |

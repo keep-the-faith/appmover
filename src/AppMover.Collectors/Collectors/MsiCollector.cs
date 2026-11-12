@@ -35,6 +35,13 @@ public sealed partial class MsiCollector : ICollector
                 {
                     if (context.IsInInstallRoot(keyPath.Path!))
                         continue;
+                    // A component without a key file has its folder as key path, which may be "C:\" (TARGETDIR) or
+                    // Program Files: never take such a folder, it is not the application's.
+                    if (keyPath.Kind == MsiKeyPathKind.Directory && (context.IsTooBroad(keyPath.Path!) || context.ContainsInstallRoot(keyPath.Path!)))
+                        continue;
+                    // A key path that is not on the disk (removed file, unknown format) cannot be exported.
+                    if (keyPath.Kind == MsiKeyPathKind.File ? !context.Files.FileExists(keyPath.Path!) : !context.Files.DirectoryExists(keyPath.Path!))
+                        continue;
                     var system = WinPath.IsUnderOrEqual(keyPath.Path!, windows);
                     var warning = system ? "System file: it may be shared with other applications or with Windows."
                         : component.Shared ? "Component shared with other installed products." : null;
