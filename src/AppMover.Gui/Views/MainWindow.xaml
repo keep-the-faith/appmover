@@ -1,0 +1,37 @@
+<Window x:Class="AppMover.Gui.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:views="clr-namespace:AppMover.Gui.Views"
+        xmlns:vm="clr-namespace:AppMover.Gui.ViewModels"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance vm:MainViewModel}"
+        Title="{Binding Title}" Width="1200" Height="780" MinWidth="900" MinHeight="600"
+        WindowStartupLocation="CenterScreen" FontSize="13" Icon="/Assets/appmover.ico">
+    <DockPanel>
+        <Border DockPanel.Dock="Top" Background="{StaticResource AccentBrush}" Padding="16,10">
+            <StackPanel>
+                <TextBlock Text="AppMover" Foreground="White" FontSize="20" FontWeight="SemiBold" />
+                <TextBlock Foreground="#D6E0F0" Text="Move an installed application to another PC, without its installer." />
+            </StackPanel>
+        </Border>
+        <Border DockPanel.Dock="Top" Background="#FFF4E5" Padding="16,6"
+                Visibility="{Binding IsElevated, Converter={StaticResource InverseBoolToVisibility}}">
+            <TextBlock Foreground="{StaticResource WarningBrush}" TextWrapping="Wrap"
+                       Text="⚠ AppMover is not running as administrator: some installations and user profiles cannot be read, and deployments will fail." />
+        </Border>
+
+        <TabControl Margin="8" Padding="0">
+            <TabItem Header="  Export  ">
+                <views:ExportView DataContext="{Binding Export}" />
+            </TabItem>
+            <TabItem Header="  Import  ">
+                <views:ImportView DataContext="{Binding Import}" />
+            </TabItem>
+            <TabItem Header="  Deployments  ">
+                <views:DeploymentsView DataContext="{Binding Deployments}" />
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>

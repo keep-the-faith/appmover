@@ -1,0 +1,104 @@
+name: build
+
+# Every push and pull request: build, test, publish, and upload the executables as a workflow artifact.
+# A tag "v<version>" (e.g. v1.0.0, v1.1.0-beta.1) also creates the GitHub Release with the executables, a zip and the
+# notes of that version from CHANGELOG.md. The tag must match <Version> in Directory.Build.props.
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Read the version
+        id: version
+        shell: pwsh
+        run: |
+          $version = ([xml](Get-Content Directory.Build.props)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+          if ("${{ github.ref_type }}" -eq "tag" -and "${{ github.ref_name }}" -ne "v$version") {
+            Write-Error "Tag ${{ github.ref_name }} does not match the version in Directory.Build.props (v$version)."
+            exit 1
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - run: dotnet build -c Release
+      - run: dotnet test -c Release --no-build
+      - run: dotnet publish src/AppMover.Cli -c Release -o dist
+      - run: dotnet publish src/AppMover.Gui -c Release -o dist
+
+      - name: Add the license and notices, make the zip
+        shell: pwsh
+        run: |
+          Copy-Item LICENSE dist/LICENSE.txt
+          New-Item -ItemType Directory -Force dist/third-party/7-Zip | Out-Null
+          Copy-Item third_party/7-Zip/License.txt, third_party/7-Zip/README.txt dist/third-party/7-Zip/
+          Compress-Archive -Path dist/appmover.exe, dist/appmover-gui.exe, dist/LICENSE.txt, dist/third-party `
+            -DestinationPath "dist/appmover-${{ steps.version.outputs.version }}-win-x64.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: appmover-win-x64
+          path: |
+            dist/appmover.exe
+            dist/appmover-gui.exe
+            dist/appmover-*-win-x64.zip
+            dist/LICENSE.txt
+            dist/third-party
+
+  release:
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: appmover-win-x64
+          path: dist
+
+      - name: Extract the release notes from CHANGELOG.md
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          # Lines between "## [<version>]" and the next "## [" heading.
+          awk -v heading="## [$VERSION]" '
+            index($0, heading) == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "::error::CHANGELOG.md has no section for $VERSION."
+            exit 1
+          fi
+
+      - name: Create the release, or complete the one created on GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          assets=(dist/appmover.exe dist/appmover-gui.exe "dist/appmover-$VERSION-win-x64.zip")
+          # A version with a suffix (1.1.0-beta.1) is published as a pre-release.
+          prerelease=()
+          [[ "$VERSION" == *-* ]] && prerelease=(--prerelease)
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            # Release created on the web page (which creates the tag and starts this workflow): attach the files.
+            gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
+            gh release edit "$GITHUB_REF_NAME" --title "AppMover $VERSION" --notes-file notes.md "${prerelease[@]}"
+          else
+            gh release create "$GITHUB_REF_NAME" --title "AppMover $VERSION" --notes-file notes.md "${prerelease[@]}" "${assets[@]}"
+          fi

@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <!-- Allows building on Linux/macOS (the application itself only runs on Windows). -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <AssemblyName>appmover-gui</AssemblyName>
+    <RootNamespace>AppMover.Gui</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Generated from Assets\appmover*.svg by tools/build-icon.sh. -->
+    <ApplicationIcon>Assets\appmover.ico</ApplicationIcon>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Assets\appmover.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AppMover.Host\AppMover.Host.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="Serilog" />
+    <PackageReference Include="Serilog.Extensions.Logging" />
+    <PackageReference Include="Serilog.Sinks.File" />
+  </ItemGroup>
+</Project>

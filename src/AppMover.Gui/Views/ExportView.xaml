@@ -1,0 +1,161 @@
+<UserControl x:Class="AppMover.Gui.Views.ExportView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:AppMover.Gui.ViewModels"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance vm:ExportViewModel}">
+    <Grid Margin="12">
+
+        <!-- Step 1: choose the application -->
+        <DockPanel Visibility="{Binding IsSelectAppStep, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock DockPanel.Dock="Top" Style="{StaticResource Title}" Text="1. Choose the application to transfer" />
+            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                <Button DockPanel.Dock="Right" Content="Refresh" Command="{Binding RefreshCommand}" />
+                <CheckBox DockPanel.Dock="Right" Content="Hidden entries" IsChecked="{Binding ShowHidden}"
+                          ToolTip="Updates, system components… (refresh to apply)" />
+                <CheckBox DockPanel.Dock="Right" Content="All users" IsChecked="{Binding AllUsers}"
+                          ToolTip="Include the applications installed for the other users (refresh to apply)" />
+                <TextBlock DockPanel.Dock="Left" Text="Search:" VerticalAlignment="Center" Margin="0,0,6,0" />
+                <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" VerticalContentAlignment="Center" Padding="4,3" />
+            </DockPanel>
+
+            <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+                <Button DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" Content="Analyze →" Command="{Binding AnalyzeCommand}" />
+                <TextBlock Style="{StaticResource Hint}" Text="{Binding AppCount}" VerticalAlignment="Center" />
+            </DockPanel>
+            <Border DockPanel.Dock="Bottom" Background="{StaticResource PanelBrush}" Padding="10" Margin="0,8,0,0"
+                    Visibility="{Binding SelectedApp, Converter={StaticResource NotEmptyToVisibility}}">
+                <TextBlock Text="{Binding SelectedApp.Details}" TextWrapping="Wrap" />
+            </Border>
+
+            <DataGrid ItemsSource="{Binding AppsView}" SelectedItem="{Binding SelectedApp}" IsReadOnly="True">
+                <DataGrid.InputBindings>
+                    <MouseBinding Gesture="LeftDoubleClick" Command="{Binding AnalyzeCommand}" />
+                </DataGrid.InputBindings>
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Application" Binding="{Binding Name}" Width="3*" />
+                    <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="*" />
+                    <DataGridTextColumn Header="Publisher" Binding="{Binding Publisher}" Width="2*" />
+                    <DataGridTextColumn Header="Scope" Binding="{Binding Scope}" Width="*" />
+                    <DataGridTextColumn Header="Installer" Binding="{Binding Installer}" Width="*" />
+                    <DataGridTextColumn Header="Size" Binding="{Binding Size}" Width="80" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </DockPanel>
+
+        <!-- Step 2: review what was found -->
+        <DockPanel Visibility="{Binding IsReviewStep, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock DockPanel.Dock="Top" Style="{StaticResource Title}">
+                <Run Text="2. Review what will be transferred: " /><Run Text="{Binding ReviewTitle, Mode=OneWay}" />
+            </TextBlock>
+            <Border DockPanel.Dock="Top" Background="{StaticResource PanelBrush}" Padding="10">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource Section}" Margin="0,0,0,4" Text="Install directories" />
+                    <TextBlock Text="{Binding InstallRoots}" TextWrapping="Wrap" />
+                    <StackPanel Visibility="{Binding Prerequisites.Count, Converter={StaticResource NotEmptyToVisibility}}">
+                        <TextBlock Style="{StaticResource Section}" Text="Prerequisites (checked on the target PC at deployment)" />
+                        <ItemsControl ItemsSource="{Binding Prerequisites}" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding TraceSummary}" Margin="0,8,0,0" TextWrapping="Wrap"
+                               Visibility="{Binding TraceSummary, Converter={StaticResource NotEmptyToVisibility}}" />
+                </StackPanel>
+            </Border>
+
+            <DockPanel DockPanel.Dock="Top" Margin="0,8">
+                <Button DockPanel.Dock="Right" Content="Select none" Command="{Binding SelectNoneCommand}" />
+                <Button DockPanel.Dock="Right" Content="Record usage…" Command="{Binding RecordUsageCommand}"
+                        ToolTip="Use the application while AppMover records the files and registry keys it reads and writes, to find data the analysis missed" />
+                <Button DockPanel.Dock="Right" Content="Select all" Command="{Binding SelectAllCommand}" />
+                <Button DockPanel.Dock="Right" Content="Default selection" Command="{Binding SelectDefaultCommand}"
+                        ToolTip="Certain and probable items" />
+                <TextBlock Style="{StaticResource Hint}" VerticalAlignment="Center"
+                           Text="&quot;Possible&quot; items are guesses (similar names, publisher folders…): they are not selected by default." />
+            </DockPanel>
+
+            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,8,0,0">
+                <CheckBox Content="Encrypt with a password" IsChecked="{Binding Encrypt}" Margin="0,0,12,0" />
+                <StackPanel Orientation="Horizontal" Visibility="{Binding Encrypt, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="Password:" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <PasswordBox Width="160" Padding="4,3" PasswordChanged="OnPasswordChanged" />
+                    <TextBlock Text="Confirm:" VerticalAlignment="Center" Margin="12,0,6,0" />
+                    <PasswordBox Width="160" Padding="4,3" PasswordChanged="OnPasswordConfirmationChanged" />
+                </StackPanel>
+            </StackPanel>
+            <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+                <Button DockPanel.Dock="Left" Content="← Back" Command="{Binding BackCommand}" />
+                <Button DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" Content="Export…" Command="{Binding ExportCommand}" />
+                <TextBlock Text="{Binding SelectionSummary}" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="8,0" />
+            </DockPanel>
+
+            <DataGrid ItemsSource="{Binding ItemsView}" CanUserSortColumns="False">
+                <DataGrid.GroupStyle>
+                    <GroupStyle>
+                        <GroupStyle.ContainerStyle>
+                            <Style TargetType="GroupItem">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="GroupItem">
+                                            <Expander IsExpanded="True">
+                                                <Expander.Header>
+                                                    <TextBlock FontWeight="SemiBold">
+                                                        <Run Text="{Binding Name, Mode=OneWay}" />
+                                                        <Run Text="{Binding ItemCount, Mode=OneWay, StringFormat=({0})}" />
+                                                    </TextBlock>
+                                                </Expander.Header>
+                                                <ItemsPresenter />
+                                            </Expander>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </GroupStyle.ContainerStyle>
+                    </GroupStyle>
+                </DataGrid.GroupStyle>
+                <DataGrid.Columns>
+                    <DataGridTemplateColumn Header="" Width="32">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" Margin="0" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="Role" Binding="{Binding Role}" Width="110" IsReadOnly="True" />
+                    <DataGridTextColumn Header="Location" Binding="{Binding Location}" Width="3*" IsReadOnly="True" />
+                    <DataGridTextColumn Header="Reason" Binding="{Binding Reason}" Width="2*" IsReadOnly="True" />
+                    <DataGridTemplateColumn Header="Warning" Width="*" IsReadOnly="True">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Warning}" Foreground="{StaticResource WarningBrush}" TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding Warning}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+        </DockPanel>
+
+        <!-- Step 3: result -->
+        <DockPanel Visibility="{Binding IsDoneStep, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock DockPanel.Dock="Top" Style="{StaticResource Title}" Text="3. Package created" />
+            <TextBlock DockPanel.Dock="Top" Text="{Binding Result}" TextWrapping="Wrap" />
+            <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+                <Button DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" Content="New export" Command="{Binding NewExportCommand}" />
+                <Button DockPanel.Dock="Right" Content="Open folder" Command="{Binding OpenFolderCommand}" />
+                <Border />
+            </DockPanel>
+            <StackPanel DockPanel.Dock="Top" Visibility="{Binding Issues.Count, Converter={StaticResource NotEmptyToVisibility}}">
+                <TextBlock Style="{StaticResource Section}" Text="Points of attention" />
+            </StackPanel>
+            <ListBox ItemsSource="{Binding Issues}" ItemTemplate="{StaticResource IssueTemplate}" BorderThickness="0" />
+        </DockPanel>
+
+        <Border Style="{StaticResource BusyOverlay}">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Width="420">
+                <TextBlock Text="{Binding BusyMessage}" TextAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,8" />
+                <ProgressBar IsIndeterminate="True" Height="6" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

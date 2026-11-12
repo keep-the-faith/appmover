@@ -1,0 +1,126 @@
+<UserControl x:Class="AppMover.Gui.Views.ImportView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:AppMover.Gui.ViewModels"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance vm:ImportViewModel}">
+    <Grid Margin="12">
+
+        <!-- Step 1: open a package -->
+        <StackPanel Visibility="{Binding IsSelectPackageStep, Converter={StaticResource BoolToVisibility}}"
+                    VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="560">
+            <TextBlock Style="{StaticResource Title}" Text="Install an application from an AppMover package" TextAlignment="Center" />
+            <TextBlock Style="{StaticResource Hint}" TextAlignment="Center" Margin="0,0,0,16"
+                       Text="The package (.appmove) is checked, then you choose the install directory and the users. A complete preview is shown before any change; the deployment is fully rolled back if it fails." />
+            <Button Style="{StaticResource PrimaryButton}" Content="Open a package…" Command="{Binding OpenPackageCommand}"
+                    HorizontalAlignment="Center" Padding="24,8" />
+        </StackPanel>
+
+        <!-- Step 2: settings -->
+        <DockPanel Visibility="{Binding IsConfigureStep, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock DockPanel.Dock="Top" Style="{StaticResource Title}" Text="{Binding PackageTitle}" />
+            <Border DockPanel.Dock="Top" Background="{StaticResource PanelBrush}" Padding="10">
+                <StackPanel>
+                    <TextBlock Text="{Binding PackageDetails}" TextWrapping="Wrap" />
+                    <StackPanel Visibility="{Binding PackageIssues.Count, Converter={StaticResource NotEmptyToVisibility}}">
+                        <TextBlock Style="{StaticResource Section}" Text="Package check" />
+                        <ItemsControl ItemsSource="{Binding PackageIssues}" ItemTemplate="{StaticResource IssueTemplate}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+                <Button DockPanel.Dock="Left" Content="Change package" Command="{Binding RestartCommand}" />
+                <Button DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" Content="Preview →" Command="{Binding PreviewCommand}" />
+                <Border />
+            </DockPanel>
+
+            <StackPanel Margin="0,8,0,0">
+                <TextBlock Style="{StaticResource Section}" Text="Install directory" />
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="Browse…" Command="{Binding BrowseInstallDirCommand}" />
+                    <TextBox Text="{Binding InstallDir, UpdateSourceTrigger=PropertyChanged}" VerticalContentAlignment="Center" Padding="4,3" />
+                </DockPanel>
+                <TextBlock Style="{StaticResource Hint}" Margin="0,2,0,0"
+                           Text="By default, the same location as on the source PC (adapted if Program Files is elsewhere on this PC)." />
+
+                <TextBlock Style="{StaticResource Section}" Text="Users" />
+                <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,4"
+                           Text="The files and settings of each source user are copied to the chosen profile." />
+                <ItemsControl ItemsSource="{Binding UserMappings}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="360" />
+                                    <ColumnDefinition Width="30" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding SourceLabel}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="1" Text="→" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                <ComboBox Grid.Column="2" ItemsSource="{Binding Targets}" SelectedItem="{Binding Selected}" DisplayMemberPath="Label" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <CheckBox Margin="0,12,0,0" IsChecked="{Binding Force}"
+                          Content="Replace the application if it is already installed (and the existing scheduled tasks)" />
+            </StackPanel>
+        </DockPanel>
+
+        <!-- Step 3: preview -->
+        <DockPanel Visibility="{Binding IsPreviewStep, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock DockPanel.Dock="Top" Style="{StaticResource Title}">
+                <Run Text="Preview: " /><Run Text="{Binding PackageTitle, Mode=OneWay}" />
+            </TextBlock>
+            <Border DockPanel.Dock="Top" Background="{StaticResource PanelBrush}" Padding="10">
+                <StackPanel>
+                    <TextBlock Text="{Binding PlanSummary}" TextWrapping="Wrap" />
+                    <StackPanel Visibility="{Binding PlanIssues.Count, Converter={StaticResource NotEmptyToVisibility}}">
+                        <TextBlock Style="{StaticResource Section}" Text="Points of attention" />
+                        <ItemsControl ItemsSource="{Binding PlanIssues}" ItemTemplate="{StaticResource IssueTemplate}" />
+                    </StackPanel>
+                    <TextBlock Margin="0,8,0,0" Foreground="Firebrick" FontWeight="SemiBold"
+                               Visibility="{Binding CanDeploy, Converter={StaticResource InverseBoolToVisibility}}"
+                               Text="The deployment is not possible until the errors above are fixed." />
+                </StackPanel>
+            </Border>
+
+            <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+                <Button DockPanel.Dock="Left" Content="← Back" Command="{Binding BackToConfigureCommand}" />
+                <Button DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" Content="Deploy" Command="{Binding DeployCommand}" />
+                <Border />
+            </DockPanel>
+
+            <TextBlock DockPanel.Dock="Top" Style="{StaticResource Section}" Text="Operations" />
+            <ListBox ItemsSource="{Binding Operations}" FontFamily="Consolas" VirtualizingPanel.IsVirtualizing="True" />
+        </DockPanel>
+
+        <!-- Step 4: result -->
+        <DockPanel Visibility="{Binding IsDoneStep, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock DockPanel.Dock="Top" Style="{StaticResource Title}" Text="Deployment complete"
+                       Visibility="{Binding Succeeded, Converter={StaticResource BoolToVisibility}}" />
+            <TextBlock DockPanel.Dock="Top" Style="{StaticResource Title}" Text="Deployment failed" Foreground="Firebrick"
+                       Visibility="{Binding Succeeded, Converter={StaticResource InverseBoolToVisibility}}" />
+            <TextBlock DockPanel.Dock="Top" Text="{Binding Result}" TextWrapping="Wrap" />
+            <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+                <Button DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" Content="Done" Command="{Binding RestartCommand}" />
+                <Border />
+            </DockPanel>
+            <StackPanel DockPanel.Dock="Top" Visibility="{Binding RollbackFailures.Count, Converter={StaticResource NotEmptyToVisibility}}">
+                <TextBlock Style="{StaticResource Section}" Foreground="Firebrick" Text="Changes that could not be reverted" />
+            </StackPanel>
+            <ListBox ItemsSource="{Binding RollbackFailures}" BorderThickness="0" />
+        </DockPanel>
+
+        <Border Style="{StaticResource BusyOverlay}">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Width="520">
+                <TextBlock Text="{Binding BusyMessage}" TextAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,8" />
+                <ProgressBar IsIndeterminate="True" Height="6" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

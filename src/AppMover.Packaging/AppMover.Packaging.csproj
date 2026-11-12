@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\AppMover.Collectors\AppMover.Collectors.csproj" />
+  </ItemGroup>
+</Project>

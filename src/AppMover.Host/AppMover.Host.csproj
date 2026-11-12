@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\AppMover.Detection\AppMover.Detection.csproj" />
+    <ProjectReference Include="..\AppMover.Deployment\AppMover.Deployment.csproj" />
+  </ItemGroup>
+  <PropertyGroup>
+    <!-- build.sh passes a signed copy when signing; otherwise the unsigned reproducible build is embedded. -->
+    <SevenZipExe Condition="'$(SevenZipExe)' == ''">..\..\third_party\7-Zip\7zz.exe</SevenZipExe>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- 7-Zip built with the NSIS script decompiler (tools/build-7zip.sh), extracted at first use. -->
+    <EmbeddedResource Include="$(SevenZipExe)" LogicalName="AppMover.Tools.7zz.exe" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Management" />
+    <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" />
+  </ItemGroup>
+</Project>

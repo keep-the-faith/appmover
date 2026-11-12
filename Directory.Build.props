@@ -1,0 +1,15 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <Version>1.0.0</Version>
+    <Product>AppMover</Product>
+    <Company>Keep The Faith</Company>
+    <Copyright>Copyright (c) 2026 Keep The Faith. MIT License.</Copyright>
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+</Project>
